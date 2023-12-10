@@ -1,160 +1,152 @@
+# UI libraries
+import tkinter as tk
+import customtkinter as ctk
+from PIL import ImageTk, Image
+
+# General libraries
 import cv2
-import numpy as np
-import time
-import os
+import pickle
+from playsound import playsound
+
+# ML libraries
+from keras.preprocessing.sequence import pad_sequences
 import mediapipe as mp
-from sklearn.model_selection import train_test_split
-from keras.utils import to_categorical          # Tensorflow library
-from keras.models import Sequential             # Tensorflow library
-from keras.layers import LSTM, Dense            # Tensorflow library
-from keras.callbacks import TensorBoard         # Tensorflow library
+import numpy as np
 
-mp_holistic = mp.solutions.holistic
-mp_drawing = mp.solutions.drawing_utils
+model_dict = pickle.load(open("model2.p", "rb"))  # Loading the model
+model = model_dict["model"]
 
+# Creating GUI
+win = tk.Tk()
+win.geometry("550x600")
+win.title("Sign Sense")
+ctk.set_appearance_mode("Dark")
 
-def mediapipe_detection(frame, model):
-    """
-    Processes the image using model.
+img = ImageTk.PhotoImage(Image.open("images/logo.png"))
+panel = tk.Label(win, image=img)
+panel.pack(side="top", fill="both")
 
-    :param frame: Cv2 frame
-    :param model: Your trained mediapipe model
-    :return: Returns the initial image and results after making prediction
-    """
+label = ctk.CTkLabel(master=win,
+                     text="You may need to adjust your hand a little bit to get a perfect output...",
+                     width=120,
+                     height=25,
+                     corner_radius=8,
+                     font=("Montserrat", 11),
+                     text_color="darkgray")
+label.place(relx=0.5, rely=0.87, anchor=tk.CENTER)
 
-    image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    image.flags.writeable = False
-    results = model.process(image)
-    image.flags.writeable = True
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+button = ctk.CTkButton(master=win,
+                       text="Let's Begin",
+                       command=win.destroy,
+                       width=120,
+                       height=40,
+                       border_width=0,
+                       corner_radius=8,
+                       font=("Montserrat", 14))
+button.place(relx=0.5, rely=0.94, anchor=tk.CENTER)
 
-    return image, results
-
-
-def draw_landmarks(image, results):
-    """
-    Returns an image with landmarks drawn over it.
-
-    :param image: cv2 frame
-    :param results: processed image by mediapipe model
-    :return: An image with hand, pose and face landmarks on it
-    """
-
-    mp_drawing.draw_landmarks(
-        image,
-        results.face_landmarks,
-        mp_holistic.FACEMESH_CONTOURS,
-        mp_drawing.DrawingSpec(color=(80, 110, 10), thickness=1, circle_radius=1),
-        mp_drawing.DrawingSpec(color=(80, 256, 121), thickness=1, circle_radius=1)
-    )
-    mp_drawing.draw_landmarks(
-        image,
-        results.pose_landmarks,
-        mp_holistic.POSE_CONNECTIONS,
-        mp_drawing.DrawingSpec(color=(80, 22, 10), thickness=2, circle_radius=4),
-        mp_drawing.DrawingSpec(color=(80, 44, 121), thickness=2, circle_radius=2)
-    )
-    mp_drawing.draw_landmarks(
-        image,
-        results.right_hand_landmarks,
-        mp_holistic.HAND_CONNECTIONS,
-        mp_drawing.DrawingSpec(color=(121, 22, 76), thickness=2, circle_radius=4),
-        mp_drawing.DrawingSpec(color=(121, 44, 250), thickness=2, circle_radius=2)
-    )
-    mp_drawing.draw_landmarks(
-        image,
-        results.left_hand_landmarks,
-        mp_holistic.HAND_CONNECTIONS,
-        mp_drawing.DrawingSpec(color=(245, 117, 66), thickness=2, circle_radius=4),
-        mp_drawing.DrawingSpec(color=(245, 66, 230), thickness=2, circle_radius=2)
-    )
-
-
-def extract_landmarks(results):
-    """
-    Concatenates and flattens the left-hand, right-hand, pose and face landmark arrays into a single numpy array
-
-    :param results: Result of mediapipe detection model
-    :return: Returns an array with pose, face, left-hand, right-hand landmarks
-    """
-
-    lh = np.array([[res.x, res.y, res.z] for res in results.left_hand_landmarks.landmark]).flatten() \
-        if results.left_hand_landmarks else np.zeros(21 * 3)
-    rh = np.array([[res.x, res.y, res.z] for res in results.right_hand_landmarks.landmark]).flatten() \
-        if results.right_hand_landmarks else np.zeros(21 * 3)
-    pose = np.array([[res.x, res.y, res.z, res.visibility] for res in results.pose_landmarks.landmark]).flatten() \
-        if results.pose_landmarks else np.zeros(33 * 4)
-    face = np.array([[res.x, res.y, res.z] for res in results.face_landmarks.landmark]).flatten() \
-        if results.face_landmarks else np.zeros(468 * 3)
-
-    return np.concatenate([pose, face, lh, rh])
-
-
-DATA_PATH = os.path.join("MP_Data")
-actions = np.array(["Apple", "Sound", "Computer"])
-no_sequences = 30
-sequence_length = 30
-
-label_map = {label: num for num, label in enumerate(actions)}
-sequences, labels = [], []
-for action in actions:
-    for sequence in range(no_sequences):
-        window = []
-        for frame_num in range(sequence_length):
-            result = np.load(os.path.join(DATA_PATH, action, str(sequence), f"{frame_num}.npy"))
-            window.append(result)
-        sequences.append(window)
-        labels.append(label_map[action])
-
-X = np.array(sequences)
-y = to_categorical(labels).astype(int)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.05)
-
-log_dir = os.path.join("Logs")
-tb_callback = TensorBoard(log_dir=log_dir)
-
-model = Sequential()
-model.add(LSTM(64, return_sequences=True, activation="relu", input_shape=(30, 1662)))
-model.add(LSTM(128, return_sequences=True, activation="relu"))
-model.add(LSTM(64, return_sequences=False, activation="relu"))
-model.add(Dense(64, activation="relu"))
-model.add(Dense(32, activation="relu"))
-model.add(Dense(actions.shape[0], activation="softmax"))
-
-model.compile(optimizer="Adam", loss="categorical_crossentropy", metrics=["categorical_accuracy"])
-model.fit(X_train, y_train, epochs=500, callbacks=[tb_callback])
-
-model.save("action.h5")
+win.mainloop()
 
 cap = cv2.VideoCapture(0)
 
-sequence = []
-sentence = []
-threshold = 0.4
+# Creating mediapipe objects
+mp_hands = mp.solutions.hands
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
+hands = mp_hands.Hands(
+    static_image_mode=True,
+    min_detection_confidence=0.3
+)
 
-with mp_holistic.Holistic(
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5
-) as holistic:
-    while cap.isOpened():
-        ret, frame = cap.read()
+labels_dict = {0: "A", 1: "B", 2: "C", 3: "D", 4: "E", 5: "F", 6: "G",
+               7: "H", 8: "I", 9: "J", 10: "K", 11: "L", 12: "M", 13: "N",
+               14: "O", 15: "P", 16: "Q", 17: "R", 18: "S", 19: "T", 20: "U",
+               21: "V", 22: "W", 23: "X", 24: "Y", 25: "Z"
+               }
 
-        image, results = mediapipe_detection(frame, holistic)
+while True:
+    data_aux = []
+    x_ = []
+    y_ = []
 
-        draw_landmarks(image, results)
+    ret, frame = cap.read()
+    H, W, _ = frame.shape
 
-        landmarks = extract_landmarks(results)
-        sequence.append(landmarks)
-        sequence = sequence[-30:]
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        if len(sequence) == 30:
-            res = model.predict(np.expand_dims(sequence, axis=0))[0]
-            print(actions[np.argmax(res)])
+    # Getting the landmarks
+    results = hands.process(frame_rgb)
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            # Drawing the landmarks
+            mp_drawing.draw_landmarks(
+                frame,
+                hand_landmarks,
+                mp_hands.HAND_CONNECTIONS,
+                mp_drawing_styles.get_default_hand_landmarks_style(),
+                mp_drawing_styles.get_default_hand_connections_style()
+            )
 
-        cv2.imshow("Sign to Speech", image)
+        for hand_landmarks in results.multi_hand_landmarks:
+            for i in range(len(hand_landmarks.landmark)):
+                x = hand_landmarks.landmark[i].x
+                y = hand_landmarks.landmark[i].y
 
-        if cv2.waitKey(10) & 0xFF == ord("q"):
-            break
+                x_.append(x)
+                y_.append(y)
+
+            for i in range(len(hand_landmarks.landmark)):
+                x = hand_landmarks.landmark[i].x
+                y = hand_landmarks.landmark[i].y
+                data_aux.append(x - min(x_))
+                data_aux.append(y - min(y_))
+
+        # Padding the landmarks
+        data_aux = pad_sequences([data_aux], maxlen=42, padding='post', truncating='post', dtype='float32')[0]
+
+        x1 = int(min(x_) * W) - 10
+        y1 = int(min(y_) * H) - 10
+
+        x2 = int(max(x_) * W) - 10
+        y2 = int(max(y_) * H) - 10
+
+        # Getting the prediction from the trained model
+        prediction = model.predict([np.asarray(data_aux)])
+        character = labels_dict[int(prediction[0])]
+
+        # Drawing rectangle and adding text
+        cv2.rectangle(
+            frame,
+            (x1, y1),
+            (x2, y2),
+            (0, 0, 0),
+            4
+        )
+        cv2.putText(
+            frame,
+            character,
+            (x1, y1 - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            2,
+            (0, 0, 0),
+            3,
+            cv2.LINE_AA
+        )
+
+        # Playing the corresponding sound
+        try:
+            if character != previous_character:
+                playsound(f"audio_files/{character}.mp3")
+        except NameError:
+            pass
+
+        cv2.imshow("Sign to Speech Converter", frame)
+
+        previous_character = character
+
+    # 'q' key to stop the loop
+    if cv2.waitKey(100) == ord('q'):
+        break
 
 cap.release()
 cv2.destroyAllWindows()
