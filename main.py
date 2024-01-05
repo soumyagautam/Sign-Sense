@@ -1,5 +1,5 @@
-import os
-import cv2
+import os       # For creating and detecting directories
+import cv2          # For getting camera frames
 
 DATA_DIR = './data'
 if not os.path.exists(DATA_DIR):
