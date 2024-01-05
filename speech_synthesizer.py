@@ -1,5 +1,5 @@
 from gtts import gTTS       # gTTS: Google Text-To-Speech
-import os
+import os       # For creating directories
 
 alphabets = [
     "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K",
