@@ -1,18 +1,19 @@
 # UI libraries
-from tkinter import *
-import customtkinter as ctk
-from PIL import ImageTk, Image
+from tkinter import *           # For creating GUI windows
+import customtkinter as ctk         # For creating advanced UIs
+from PIL import ImageTk, Image      # For dealing with images in GUI
 
 # General libraries
-import cv2
-import pickle
-from playsound import playsound
+import pickle       # For accessing the stored model with .p extension
+import sys          # For closing the app when button clicked
+from playsound import playsound         # Playing the corresponding sounds to the detected character
 
 # ML libraries
-from keras.preprocessing.sequence import pad_sequences
-import mediapipe as mp
-import numpy as np
-import speech_recognition as sr
+import cv2          # For getting camera frames
+from keras.preprocessing.sequence import pad_sequences          # For padding the detected data to remove whitespaces
+import mediapipe as mp              # To detect hand landmarks
+import numpy as np              # For dealing with arrays
+import speech_recognition as sr         # For audio processing and recording audio
 
 model_dict = pickle.load(open("model2.p", "rb"))  # Loading the model
 model = model_dict["model"]
@@ -32,9 +33,9 @@ def nlp():
     recognizer = sr.Recognizer()
 
     with sr.Microphone() as source:
-        audio = recognizer.listen(source, timeout=5)
+        audio = recognizer.listen(source, timeout=10)
     try:
-        text = recognizer.recognize_sphinx(audio)
+        text = recognizer.recognize_google(audio)
         token = 2
     except sr.UnknownValueError:
         text = "Could not understand audio."
@@ -75,7 +76,7 @@ def sign_to_speech():
         y_ = []
 
         ret, frame = cap.read()
-        H, W, _ = frame.shape
+        H, Width, _ = frame.shape
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
@@ -109,10 +110,10 @@ def sign_to_speech():
             # Padding the landmarks
             data_aux = pad_sequences([data_aux], maxlen=42, padding='post', truncating='post', dtype='float32')[0]
 
-            x1 = int(min(x_) * W) - 10
+            x1 = int(min(x_) * Width) - 10
             y1 = int(min(y_) * H) - 10
 
-            x2 = int(max(x_) * W) - 10
+            x2 = int(max(x_) * Width) - 10
             y2 = int(max(y_) * H) - 10
 
             # Getting the prediction from the trained model
@@ -122,20 +123,14 @@ def sign_to_speech():
             # Drawing rectangle and adding text
             cv2.rectangle(
                 frame,
-                (x1, y1),
-                (x2, y2),
-                (0, 0, 0),
-                4
+                (x1, y1), (x2, y2),
+                (0, 0, 0), 4
             )
             cv2.putText(
-                frame,
-                character,
+                frame, character,
                 (x1, y1 - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                2,
-                (0, 0, 0),
-                3,
-                cv2.LINE_AA
+                cv2.FONT_HERSHEY_SIMPLEX, 2,
+                (0, 0, 0), 3, cv2.LINE_AA
             )
 
             # Playing the corresponding sound
@@ -160,7 +155,7 @@ def sign_to_speech():
 
 def speech_to_sign():
     win2 = Toplevel()
-    win2.geometry("900x400")
+    win2.geometry("900x300")
     win2.title("Sign Sense - Speech2Sign")
     ctk.set_appearance_mode("Dark")
 
@@ -172,21 +167,19 @@ def speech_to_sign():
 
         for letter in text:
             for element in data:
-                if element[0] == letter:
+                if element[0] == letter.lower():
                     image_path = element[1]
 
-            try:
-                image1 = Image.open(image_path).resize((196, 257))
-                test = ImageTk.PhotoImage(image1)
-                label1 = Label(master=win2, image=test)
-                label1.image = test
+            image1 = Image.open(image_path)
+            original_width, original_height = image1.width, image1.height
+            resized_image = image1.resize((original_width // 2, original_height // 2), Image.NEAREST)
+            test = ImageTk.PhotoImage(resized_image)
+            label1 = Label(master=win2, image=test)
+            label1.image = test
 
-                label1.place(x=i, y="0")
+            label1.place(x=i, y="0")
 
-            except UnboundLocalError:
-                text = "An unidentified error occurred."
-
-            i += 196
+            i += 170
 
     label2 = ctk.CTkLabel(master=win2,
                           text=text,
@@ -206,8 +199,12 @@ win.geometry("550x600")
 win.title("Sign Sense")
 ctk.set_appearance_mode("Dark")
 
-img = ImageTk.PhotoImage(Image.open("images/logo.png"))
-panel = Label(win, image=img)
+close_img = ctk.CTkImage(
+    Image.open("images/close.png"),
+    size=(20, 20)
+)
+logo_img = ImageTk.PhotoImage(Image.open("images/logo.png"))
+panel = Label(win, image=logo_img)
 panel.pack(side="top", fill="both")
 
 label = ctk.CTkLabel(master=win,
@@ -238,5 +235,14 @@ button = ctk.CTkButton(master=win,
                        corner_radius=8,
                        font=("Montserrat", 14))
 button.place(relx=0.7, rely=0.94, anchor=CENTER)
+
+close_button = ctk.CTkButton(master=win,
+                             text="",
+                             command=sys.exit,
+                             image=close_img,
+                             width=10,
+                             height=10,
+                             corner_radius=5)
+close_button.place(relx=0.9, rely=0.05, anchor=CENTER)
 
 win.mainloop()
