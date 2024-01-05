@@ -1,10 +1,10 @@
-import pickle
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report
-# from imblearn.over_sampling import RandomOverSampler
-from keras.preprocessing.sequence import pad_sequences      # Tensorflow library
-import numpy as np
+import pickle       # For dealing with stored dataset
+from sklearn.ensemble import RandomForestClassifier         # Base AI Model
+from sklearn.model_selection import train_test_split        # To get the x_train, y_train, x_test, y_test
+from sklearn.metrics import accuracy_score, classification_report       # For calculating the model's prediction score
+# from imblearn.over_sampling import RandomOverSampler         # Not used
+from keras.preprocessing.sequence import pad_sequences      # For padding the dataset to remove whitespaces
+import numpy as np          # For doing mathematical calculations
 
 data_dict = pickle.load(open("data.pickle", "rb"))        # Loading the data
 
