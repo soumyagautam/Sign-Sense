@@ -1,7 +1,7 @@
-import os
-import pickle
-import mediapipe as mp
-import cv2
+import os           # For creating and detecting directories
+import pickle           # For storing te dataset
+import mediapipe as mp          # To detect hand landmarks
+import cv2              # To get camera frames
 
 # Creating mediapipe objects
 mp_hands = mp.solutions.hands
