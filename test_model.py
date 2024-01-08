@@ -1,19 +1,22 @@
 # UI libraries
-from tkinter import *           # For creating GUI windows
-import customtkinter as ctk         # For creating advanced UIs
-from PIL import ImageTk, Image      # For dealing with images in GUI
+from tkinter import *  # For creating GUI windows
+import customtkinter as ctk  # For creating advanced UIs
+from PIL import ImageTk, Image  # For dealing with images in GUI
 
 # General libraries
-import pickle       # For accessing the stored model with .p extension
-import sys          # For closing the app when button clicked
-from playsound import playsound         # Playing the corresponding sounds to the detected character
+import pickle  # For accessing the stored model with .p extension
+import sys  # For closing the app when button clicked
+from playsound import playsound  # Playing the corresponding sounds to the detected character
 
 # ML libraries
-import cv2          # For getting camera frames
-from keras.preprocessing.sequence import pad_sequences          # For padding the detected data to remove whitespaces
-import mediapipe as mp              # To detect hand landmarks
-import numpy as np              # For dealing with arrays
-import speech_recognition as sr         # For audio processing and recording audio
+import cv2  # For getting camera frames
+from keras.preprocessing.sequence import pad_sequences  # For padding the detected data to remove whitespaces
+import mediapipe as mp  # To detect hand landmarks
+import numpy as np  # For dealing with arrays
+
+# Audio recognition
+import speech_recognition as sr  # For audio processing and recording audio
+import requests
 
 model_dict = pickle.load(open("model2.p", "rb"))  # Loading the model
 model = model_dict["model"]
@@ -33,19 +36,16 @@ def nlp():
     recognizer = sr.Recognizer()
 
     with sr.Microphone() as source:
-        audio = recognizer.listen(source, timeout=10)
-    try:
-        text = recognizer.recognize_google(audio)
-        token = 2
-    except sr.UnknownValueError:
-        text = "Could not understand audio."
-        token = 1
-    except sr.RequestError as e:
-        text = f"Error with the request; {e}."
-        token = 0
-    except sr.WaitTimeoutError:
-        text = "Listening timed out while waiting for phrase to start"
-        token = -1
+        try:
+            audio_data = recognizer.listen(source, timeout=10)
+            text = recognizer.recognize_google(audio_data)
+            token = 2
+        except sr.UnknownValueError:
+            text = "Could not understand audio."
+            token = 1
+        except sr.RequestError as e:
+            print("Could not request results from Google Speech Recognition service; {0}".format(e))
+            token = 0
 
     return token, text
 
@@ -153,17 +153,21 @@ def sign_to_speech():
     cv2.destroyAllWindows()
 
 
+def start_speech_procedure():
+    button2.configure(text="Listening...", fg_color="green")
+    button2.after(100, speech_to_sign)
+
+
 def speech_to_sign():
     win2 = Toplevel()
     win2.geometry("900x300")
     win2.title("Sign Sense - Speech2Sign")
-    ctk.set_appearance_mode("Dark")
 
     token, text = nlp()
 
     if token == 2:
         text = text.split(" ")[0]
-        i = 0
+        x = 50
 
         for letter in text:
             for element in data:
@@ -172,14 +176,21 @@ def speech_to_sign():
 
             image1 = Image.open(image_path)
             original_width, original_height = image1.width, image1.height
-            resized_image = image1.resize((original_width // 2, original_height // 2), Image.NEAREST)
+
+            resized_image = image1.resize((original_width // 2, original_height // 2), Image.LANCZOS)
             test = ImageTk.PhotoImage(resized_image)
             label1 = Label(master=win2, image=test)
             label1.image = test
 
-            label1.place(x=i, y="0")
+            if letter.lower() == "a" or letter.lower() == "e" or letter.lower() == "s":
+                label1.place(x=x, y="30")
+            else:
+                label1.place(x=x, y="45")
 
-            i += 170
+            label_text = Label(master=win2, text=letter.upper())
+            label_text.place(x=x + (original_width // 4), y="10")
+
+            x += (original_width // 2 + 50)
 
     label2 = ctk.CTkLabel(master=win2,
                           text=text,
@@ -190,6 +201,8 @@ def speech_to_sign():
                           text_color="darkgray")
     label2.place(relx=0.5, rely=0.8, anchor=CENTER)
 
+    button2.configure(fg_color=orig_color, text="Speech2Sign")
+
     win2.mainloop()
 
 
@@ -197,7 +210,6 @@ def speech_to_sign():
 win = Tk()
 win.geometry("550x600")
 win.title("Sign Sense")
-ctk.set_appearance_mode("Dark")
 
 close_img = ctk.CTkImage(
     Image.open("images/close.png"),
@@ -226,20 +238,23 @@ button = ctk.CTkButton(master=win,
                        font=("Montserrat", 14))
 button.place(relx=0.3, rely=0.94, anchor=CENTER)
 
-button = ctk.CTkButton(master=win,
-                       text="Speech2Sign",
-                       command=speech_to_sign,
-                       width=120,
-                       height=40,
-                       border_width=0,
-                       corner_radius=8,
-                       font=("Montserrat", 14))
-button.place(relx=0.7, rely=0.94, anchor=CENTER)
+button2 = ctk.CTkButton(master=win,
+                        text="Speech2Sign",
+                        command=start_speech_procedure,
+                        width=120,
+                        height=40,
+                        border_width=0,
+                        corner_radius=8,
+                        font=("Montserrat", 14))
+button2.place(relx=0.7, rely=0.94, anchor=CENTER)
+orig_color = button2.cget("fg_color")
 
 close_button = ctk.CTkButton(master=win,
                              text="",
                              command=sys.exit,
                              image=close_img,
+                             fg_color="white",
+                             hover_color="white",
                              width=10,
                              height=10,
                              corner_radius=5)
