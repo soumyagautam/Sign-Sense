@@ -16,7 +16,6 @@ import numpy as np  # For dealing with arrays
 
 # Audio recognition
 import speech_recognition as sr  # For audio processing and recording audio
-import requests
 
 model_dict = pickle.load(open("model2.p", "rb"))  # Loading the model
 model = model_dict["model"]
