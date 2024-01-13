@@ -5,8 +5,8 @@ from PIL import ImageTk, Image  # For dealing with images in GUI
 
 # General libraries
 import pickle  # For accessing the stored model with .p extension
-import sys  # For closing the app when button clicked
 from playsound import playsound  # Playing the corresponding sounds to the detected character
+import re  # To remove punctuations from OpenAI transcriptions
 
 # ML libraries
 import cv2  # For getting camera frames
@@ -16,6 +16,8 @@ import numpy as np  # For dealing with arrays
 
 # Audio recognition
 import speech_recognition as sr  # For audio processing and recording audio
+import wave  # To create a .wav file out of the microphone recordings
+import whisper  # Advanced OpenAI audio transcribing model
 
 model_dict = pickle.load(open("model2.p", "rb"))  # Loading the model
 model = model_dict["model"]
@@ -35,18 +37,25 @@ def nlp():
     recognizer = sr.Recognizer()
 
     with sr.Microphone() as source:
-        try:
-            audio_data = recognizer.listen(source, timeout=10)
-            text = recognizer.recognize_google(audio_data)
-            token = 2
-        except sr.UnknownValueError:
-            text = "Could not understand audio."
-            token = 1
-        except sr.RequestError as e:
-            print("Could not request results from Google Speech Recognition service; {0}".format(e))
-            token = 0
+        audio_data = recognizer.listen(source, timeout=10)
 
-    return token, text
+    with wave.open("captured_audio.wav", "wb") as wave_file:
+        wave_file.setnchannels(1)
+        wave_file.setsampwidth(audio_data.sample_width)
+        wave_file.setframerate(audio_data.sample_rate)
+        wave_file.writeframes(audio_data.frame_data)
+
+    audio_model = whisper.load_model("base")
+    result = audio_model.transcribe("captured_audio.wav", fp16=False)["text"][1:]
+    sen_type = None
+
+    if result[-1] == "?":
+        sen_type = "Interrogative"
+
+    punctuation_pattern = re.compile(r'[^\w\s]')
+    text = re.sub(punctuation_pattern, '', result)
+
+    return sen_type, text
 
 
 def sign_to_speech():
@@ -139,7 +148,7 @@ def sign_to_speech():
             except NameError:
                 pass
 
-            cv2.imshow("Sign to Speech Converter", frame)
+            cv2.imshow("Sign Sense - Sign2Speech", frame)
 
             previous_character = character
             i = 1
@@ -162,34 +171,44 @@ def speech_to_sign():
     win2.geometry("900x300")
     win2.title("Sign Sense - Speech2Sign")
 
-    token, text = nlp()
+    sen_type, text = nlp()            # Natural Language Processing (NLP)
 
-    if token == 2:
-        text = text.split(" ")[0]
-        x = 50
+    text = text.split(" ")
+    x = 50
+    y = 75
 
-        for letter in text:
+    for word in text:
+        for letter in word:
             for element in data:
                 if element[0] == letter.lower():
                     image_path = element[1]
 
-            image1 = Image.open(image_path)
-            original_width, original_height = image1.width, image1.height
+            try:
+                image1 = Image.open(image_path)
+                original_width, original_height = image1.width, image1.height
 
-            resized_image = image1.resize((original_width // 2, original_height // 2), Image.LANCZOS)
-            test = ImageTk.PhotoImage(resized_image)
-            label1 = Label(master=win2, image=test)
-            label1.image = test
+                resized_image = image1.resize((original_width // 2, original_height // 2), Image.LANCZOS)
+                test = ImageTk.PhotoImage(resized_image)
+                label1 = Label(master=win2, image=test)
+                label1.image = test
 
-            if letter.lower() == "a" or letter.lower() == "e" or letter.lower() == "s":
-                label1.place(x=x, y="30")
-            else:
-                label1.place(x=x, y="45")
+                if letter.lower() == "a" or letter.lower() == "e" or letter.lower() == "s" or letter.lower() == "r":
+                    label1.place(x=x - 20, y=y - 10)
+                else:
+                    label1.place(x=x, y=y)
 
-            label_text = Label(master=win2, text=letter.upper())
-            label_text.place(x=x + (original_width // 4), y="10")
+                label_text = Label(master=win2, text=letter.upper())
+                label_text.place(x=x + (original_width // 4), y=y - 25)
 
-            x += (original_width // 2 + 50)
+                x += (original_width // 2 + 50)
+            except UnboundLocalError:
+                text = "Error"
+
+        y += 200
+        x = 50
+
+    if sen_type == "Interrogative":
+        text += "?"
 
     label2 = ctk.CTkLabel(master=win2,
                           text=text,
@@ -198,7 +217,7 @@ def speech_to_sign():
                           corner_radius=8,
                           font=("Montserrat", 14),
                           text_color="darkgray")
-    label2.place(relx=0.5, rely=0.8, anchor=CENTER)
+    label2.place(x=80, y=30, anchor=CENTER)
 
     button2.configure(fg_color=orig_color, text="Speech2Sign")
 
@@ -210,16 +229,12 @@ win = Tk()
 win.geometry("550x600")
 win.title("Sign Sense")
 
-close_img = ctk.CTkImage(
-    Image.open("images/close.png"),
-    size=(20, 20)
-)
 logo_img = ImageTk.PhotoImage(Image.open("images/logo.png"))
 panel = Label(win, image=logo_img)
 panel.pack(side="top", fill="both")
 
 label = ctk.CTkLabel(master=win,
-                     text="You may need to adjust your hand a little bit to get a perfect output...",
+                     text="",
                      width=120,
                      height=25,
                      corner_radius=8,
@@ -248,15 +263,27 @@ button2 = ctk.CTkButton(master=win,
 button2.place(relx=0.7, rely=0.94, anchor=CENTER)
 orig_color = button2.cget("fg_color")
 
-close_button = ctk.CTkButton(master=win,
-                             text="",
-                             command=sys.exit,
-                             image=close_img,
-                             fg_color="white",
-                             hover_color="white",
-                             width=10,
-                             height=10,
-                             corner_radius=5)
-close_button.place(relx=0.9, rely=0.05, anchor=CENTER)
+
+def on_hover1(event):
+    label.configure(text="Try adjusting your hand a little bit to get a perfect output...")
+
+
+def on_leave1(event):
+    label.configure(text="")
+
+
+def on_hover2(event):
+    label.configure(text="Start speaking 1 second after the listening process starts for better results...")
+
+
+def on_leave2(event):
+    label.configure(text="")
+
+
+button.bind("<Enter>", on_hover1)
+button.bind("<Leave>", on_leave1)
+
+button2.bind("<Enter>", on_hover2)
+button2.bind("<Leave>", on_leave2)
 
 win.mainloop()
