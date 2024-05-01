@@ -1,0 +1,26 @@
+body {
+    text-align: center;
+}
+
+.title {
+    font-size: 50px;
+    font-style: "Montserrat, Arial";
+}
+
+button {
+    color: #ffffff;
+    background-color: #941414;
+    font-size: 19px;
+    border: 1px solid #2d63c8;
+    border-radius: 10px;
+    padding: 15px 50px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    display: inline-block;
+    margin: 100px;
+}
+
+button:hover {
+    color: #941414;
+    background-color: #ffffff;
+}
