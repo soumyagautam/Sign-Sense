@@ -1,0 +1,56 @@
+body {
+  text-align: center;
+  font-family: "Montserrat", sans-serif;
+  padding: 20px;
+  background-color: #F4F4F9;
+}
+
+.top-deck {     /* From info.html */
+  background-color: #8989A2;
+  color: white;
+  border: 1px dotted darkgray;
+  border-radius: 5%;
+}
+
+.goal {  /* From info.html */
+  height: 150px;
+  margin: 30px;
+  padding: 10px;
+  border: 1px dotted darkgray;
+  border-radius: 10%;
+}
+
+h2 {
+  margin: 40px;
+}
+
+.title {
+  font-size: 50px;
+  margin: 30px;
+  font-family: "Sacramento", cursive;
+}
+
+button {
+  height: 180px;
+  border: 1px solid darkgray;
+  border-radius: 100%;
+  background-color: white;
+  margin-bottom: 50px;
+}
+
+button:hover {
+  opacity: 0.8;
+}
+
+form {
+  display: inline-block;
+  margin: 30px 50px;
+}
+
+.btnimg {
+  height: 180px;
+}
+
+.btn-foot {
+  margin: 20px;
+}

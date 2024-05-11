@@ -1,0 +1,19 @@
+body {
+  text-align: center;
+  font-family: "Montserrat", sans-serif;
+  padding: 20px;
+  background-color: #F4F4F9;
+}
+
+.title {
+  font-size: 50px;
+  margin: 30px;
+  font-family: "Sacramento", cursive;
+}
+
+.outimg {
+  height: 300px;
+  padding: 10px;
+  border: 1px dotted darkgray;
+  border-radius: 10%;
+}
