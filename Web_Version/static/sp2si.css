@@ -1,0 +1,12 @@
+body {
+  text-align: center;
+  font-family: "Montserrat", sans-serif;
+  padding: 20px;
+  background-color: #F4F4F9;
+}
+
+.title {
+  font-size: 50px;
+  margin: 30px;
+  font-family: "Sacramento", cursive;
+}
