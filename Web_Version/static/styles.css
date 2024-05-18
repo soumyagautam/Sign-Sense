@@ -51,6 +51,17 @@ form {
   height: 180px;
 }
 
+.instructions {
+    padding: 20px;
+    border: 1px dotted black;
+    border-radius: 5%;
+}
+
+.instructions-sub {
+    margin: 0;
+}
+
 .btn-foot {
-  margin: 20px;
+  position: relative;
+  top: 20px;
 }
