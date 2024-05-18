@@ -12,17 +12,17 @@ def nlp():
         with sr.Microphone() as source:
             audio_data = recognizer.listen(source, timeout=10)
 
-        with wave.open("captured_audio1.wav", "wb") as wave_file:
+        with wave.open("./static/captured_audio1.wav", "wb") as wave_file:
             wave_file.setnchannels(1)
             wave_file.setsampwidth(audio_data.sample_width)
             wave_file.setframerate(audio_data.sample_rate)
             wave_file.writeframes(audio_data.frame_data)
 
-        y, source = librosa.load("captured_audio1.wav")
+        y, source = librosa.load("./static/captured_audio1.wav")
         audio_waveform = np.array(y)
 
         audio_model = whisper.load_model("base")
-        result = audio_model.transcribe(audio_waveform, fp16=False)["text"][1:]
+        result = audio_model.transcribe(audio_waveform, fp16=False, language="en")["text"][1:]
 
         return result
 
