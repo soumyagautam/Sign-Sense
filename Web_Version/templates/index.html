@@ -21,16 +21,26 @@
   <h5>Your handy deaf-AI system</h5>
 
   <form action="{{ url_for('si2sp') }}" method="post">
-    <button type="submit" name="sign2speech"><img class="btnimg" src="./static/logo.png"></button>
+    <button type="submit" name="sign2speech" data-toggle="tooltip" title="Sign to Speech"><img class="btnimg" src="./static/logo.png"></button>
   </form>
 
   <form action="{{ url_for('sp2te') }}" method="post">
-    <button type="submit" name="speech2text" data-toggle="tooltip" title="Speak only when your taskbar shows the mic sign."><img class="btnimg" src="./static/microphone.png"></button>
+    <button type="submit" name="speech2text" data-toggle="tooltip" title="Speech to Sign"><img class="btnimg" src="./static/microphone.png"></button>
   </form>
 
-  <p>
-    {{ text }}
-  </p>
+  <div class="instructions">
+    <p class="instructions-sub">
+      Guidelines for Si2Sp (Sign to Speech):<br>
+        1. Make you background mostly clear (preferably white).<br>
+        2. Keep your hands in front of your camera. Approximately 1-2 feet away.<br>
+        3. Minimize over-lighting.<br>
+      <br>
+      Guidelines for Sp2Si (Speech to Sign):<br>
+        1. Start speaking 1s after the listening process starts for better results.<br>
+        2. Minimize the background noise.
+    </p>
+  </div>
+
 
   <br><a href="info.html" target="_blank" class="btn btn-sm btn-foot btn-dark">Learn More</a>
 </body>
