@@ -53,7 +53,7 @@ def sp2te():
     print(text_re)
 
     image_filenames = []
-    for words in text_re:
+    for words in text_re.split(" "):
         for letter in words:
             image_filenames.append(f"../sign_dataset/{letter}.png")
 
