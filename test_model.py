@@ -1,16 +1,25 @@
-# UI libraries
 from tkinter import *  # For creating GUI windows
 import customtkinter as ctk  # For creating advanced UIs
 from PIL import ImageTk, Image  # For dealing with images in GUI
 from pygame import mixer  # Playing the corresponding sounds to the detected character
-
-# ML libraries
 import cv2  # For getting camera frames
 from audio_processing import nlp  # Library to transcribe audio
-from process_img import process
+from process_img import process  # Local library to detect landmarks on hands
+import os  # Useful for working with local directories
+import automated_video_gen as avg  # To generate videos by concatenation frames
+
+# Loading SSL certificate
+os.environ['SSL_CERT_FILE'] = ("/Users/ajaygautam/Desktop/Sign-Sense-main/venv/lib/python3.12/site-packages/certifi"
+                               "/cacert.pem")
 
 
 def sign_to_speech():
+    """
+    Processes frames and detects hand in them using Mediapipe library. Then performs series of pre-defined
+    algorithms to detect ASL sign using hand landmarks.
+
+    :return: Continuous procedure to detect hand and predict sign till 'Q' is not pressed
+    """
     cap = cv2.VideoCapture(0)
 
     i = 0
@@ -19,6 +28,8 @@ def sign_to_speech():
         height, width, _ = frame.shape
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Detecting hands in frame and predicting sign using pre-trained AI model
         code, character, hand_pos = process(frame, frame_rgb, width, height)
 
         if code:
@@ -36,9 +47,24 @@ def sign_to_speech():
             # Playing the corresponding sound
             try:
                 if character != previous_character or i == 0:
+                    """
+                        Multiple checks:
+                            1. Checks whether the prediction is being continuously repeated to avoid 'bad' noise.
+                            2. Checks if it is the first letter, if it is, then play the sound manually to avoid being
+                               missed.
+                    """
                     mixer.init()
-                    mixer.music.load(f"audio_files/{character}.mp3")
-                    mixer.music.play()
+
+                    try:
+                        mixer.music.load(f"audio_files/{character}.mp3")
+                        mixer.music.play()
+                    except FileNotFoundError:
+                        print(f"Audio file for character '{character}' not found.")
+                    except Exception as e:
+                        print(f"Error playing sound: {e}")
+
+                    mixer.quit()
+
             except NameError:
                 pass
 
@@ -61,83 +87,67 @@ def start_speech_procedure():
 
 
 def speech_to_sign():
+    """
+    Transcribes recorded audio using OpenAI Whisper API and then uses 'PIL' and 'ffmpeg' to concatenate images and
+    create a video of corresponding ASL signs.
+
+    :return: Continuous procedure to transcribe audio and show AI generated video of ASL signs
+    """
+
+    # Editing the generated video to fit screen, dynamically
+    class VideoPlayer(Frame):
+        def __init__(self, parent, video_path, width, height):
+            super().__init__(parent)
+            self.video_path = video_path
+            self.width = width
+            self.height = height
+            self.cap = cv2.VideoCapture(video_path)
+            self.lbl = Label(self)
+            self.lbl.pack()
+            self.update_video()
+
+        def update_video(self):
+            ret, frame = self.cap.read()
+            if ret:
+                # Resize the frame
+                frame = cv2.resize(frame, (self.width, self.height))
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                img = Image.fromarray(frame)
+                imgtk = ImageTk.PhotoImage(image=img)
+                self.lbl.imgtk = imgtk  # Keep a reference to avoid garbage collection
+                self.lbl.configure(image=imgtk)
+            self.after(33, self.update_video)
+
     win2 = Toplevel()
-    win2.geometry("900x300")
+    win2.geometry("800x400")
     win2.title("Sign Sense - Speech2Sign")
 
-    sen_type, text = nlp()            # Natural Language Processing (NLP)
-
+    sen_type, text = nlp()      # Transcribe recorded audio using OpenAI API
     text = text.split(" ")
-    x = 50
-    y = 75
+    letters = "abcdefghijklmnopqrstuvwxyz"
 
-    main_frame = Frame(win2)
-    main_frame.pack(fill=BOTH, expand=1)
-
-    my_canvas = Canvas(main_frame)
-    my_canvas.pack(side=LEFT, fill=BOTH, expand=1)
-
-    my_scrollbar = Scrollbar(main_frame, orient=VERTICAL, command=my_canvas.yview)
-    my_scrollbar.pack(side=RIGHT, fill=Y)
-
-    my_canvas.configure(yscrollcommand=my_scrollbar.set)
-    my_canvas.bind(
-        '<Configure>', lambda e: my_canvas.configure(scrollregion=my_canvas.bbox("all"))
-    )
-
-    def _on_mousewheel(event):
-        my_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-    my_canvas.bind_all("<MouseWheel>", _on_mousewheel)
-
-    second_frame = Frame(my_canvas, width=1000, height=1000)
-    second_frame.pack(fill=BOTH, expand=True)
-
-    letters = []
-    for letter in range(ord("A"), ord("z") + 1):
-        letters.append(chr(letter))
-
+    image_filenames = []
     for word in text:
         for letter in word:
-            if letter in letters:
-                image_path = f"sign_dataset/{letter}.png"
+            if letter.lower() in letters:
+                image_filenames.append(f"sign_dataset/{letter.lower()}.png")
 
-            try:
-                image1 = Image.open(image_path)
-                original_width, original_height = image1.width, image1.height
+    # Concatenating images to create video
+    avg.create_video_with_ffmpeg(image_filenames, "final_video.mp4", duration_per_image=2)
 
-                resized_image = image1.resize((original_width // 3, original_height // 3), Image.LANCZOS)
-                test = ImageTk.PhotoImage(resized_image)
-                label1 = Label(master=second_frame, image=test)
-                label1.image = test
+    # Displaying images on screen
+    video_player = VideoPlayer(win2, "final_video.mp4", width=500, height=300)
+    video_player.pack()
 
-                if letter.lower() == "a" or letter.lower() == "e" or letter.lower() == "s" or letter.lower() == "r":
-                    label1.place(x=x - 20, y=y - 10)
-                else:
-                    label1.place(x=x, y=y)
-
-                label_text = Label(master=second_frame, text=letter.upper())
-                label_text.place(x=x + (original_width // 6), y=y - 25)
-
-                x += (original_width // 2 + 50)
-            except UnboundLocalError:
-                text = "Error"
-
-        y += 150
-        x = 50
-
-    if sen_type == "Interrogative":
+    if sen_type == "Interrogative":         # Sentence type-check
         text += "?"
 
-    label2 = ctk.CTkLabel(master=second_frame, text=text,
+    label2 = ctk.CTkLabel(master=win2, text=text,
                           width=120, height=25, corner_radius=8,
                           font=("Montserrat", 14), text_color="darkgray")
-    label2.place(x=80, y=30, anchor="w")
+    label2.pack()
 
     button2.configure(fg_color=orig_color, text="Speech2Sign")
-
-    my_canvas.create_window((0, 0), window=second_frame, anchor="nw")
-    second_frame.configure(height=y)
 
     win2.mainloop()
 
